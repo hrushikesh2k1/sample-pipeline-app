@@ -6,4 +6,4 @@ def subtract(a, b):
 
 if __name__ == "__main__":
     print("App running")
-    print(f"2 + 3 = {add(2, 3)}")
+    print(f"2 + 2 = {add(2, 2)}")
