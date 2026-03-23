@@ -1,2 +1,2 @@
 # sample-pipeline-app
-creating sample pipeline for #AvienFreeTier challenge.
+creating sample pipeline for #AvienFreeTier challenge. 
