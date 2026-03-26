@@ -1,0 +1,18 @@
+{
+  "app_name": "sample-pipeline-app",
+  "version": 1,
+  "operations": [
+    {
+      "name": "add_2_3",
+      "result": 5
+    },
+    {
+      "name": "subtract_5_3",
+      "result": 2
+    },
+    {
+      "name": "subtract_10_4",
+      "result": 6
+    }
+  ]
+}

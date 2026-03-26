@@ -3,58 +3,147 @@ name: sample-pipeline
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
   schedule:
-    - cron: '*/9 * * * *'  
+    - cron: "*/30 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sample-pipeline-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"
+  PIP_CACHE_DIR: ~/.cache/pip
 
 jobs:
-  install:
+  quality-gate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          sleep 50
+      - name: Checkout source
+        uses: actions/checkout@v4
 
-  test:
-    runs-on: ubuntu-latest
-    needs: install
-    steps:
-      - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PIP_CACHE_DIR }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Run tests
-        run: |
-          pytest test_app.py -v
-          sleep 90
 
-  build:
+      - name: Validate Python sources
+        run: python -m compileall .
+
+  unit-tests:
     runs-on: ubuntu-latest
-    needs: test
+    needs: quality-gate
     steps:
-      - uses: actions/checkout@v4
-      - name: Build artifact
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PIP_CACHE_DIR }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run unit tests
+        run: pytest test_app.py -v --junitxml=artifacts/unit-test-results.xml
+
+      - name: Upload unit test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: artifacts/unit-test-results.xml
+
+  regression-baseline:
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PIP_CACHE_DIR }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run regression snapshot check
+        run: python scripts/check_regression.py --baseline baseline/expected_snapshot.json --report artifacts/regression-report.json
+
+      - name: Upload regression report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-report
+          path: artifacts/regression-report.json
+
+  package-artifact:
+    runs-on: ubuntu-latest
+    needs: regression-baseline
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Assemble release bundle
         run: |
           mkdir -p dist
           cp app.py dist/
-          echo "Build complete"
-          sleep 40
+          cp baseline/expected_snapshot.json dist/
+          cp README.md dist/
+          tar -czf dist/sample-pipeline-app.tar.gz dist
 
-  deploy:
+      - name: Upload release bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-bundle
+          path: dist/sample-pipeline-app.tar.gz
+
+  release-readiness:
     runs-on: ubuntu-latest
-    needs: build
+    needs: package-artifact
     steps:
-      - uses: actions/checkout@v4
-      - name: Deploy
+      - name: Create workflow summary
         run: |
-          echo "Deploying app..."
-          echo "Deploy complete"
-          sleep 25
+          {
+            echo "## Release readiness"
+            echo ""
+            echo "- Quality gate: passed"
+            echo "- Unit tests: passed"
+            echo "- Regression baseline: matched approved output"
+            echo "- Packaging: release bundle generated"
+          } >> "$GITHUB_STEP_SUMMARY"
