@@ -121,11 +121,12 @@ jobs:
 
       - name: Assemble release bundle
         run: |
+          mkdir -p package/baseline
           mkdir -p dist
-          cp app.py dist/
-          cp baseline/expected_snapshot.json dist/
-          cp README.md dist/
-          tar -czf dist/sample-pipeline-app.tar.gz dist
+          cp app.py package/
+          cp baseline/expected_snapshot.json package/baseline/
+          cp README.md package/
+          tar -czf dist/sample-pipeline-app.tar.gz -C package .
 
       - name: Upload release bundle
         uses: actions/upload-artifact@v4
