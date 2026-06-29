@@ -17,19 +17,16 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          # Anti-pattern: No caching enabled here!
+          cache: 'pip'
           
       - name: Install Dependencies
         run: |
           pip install flake8 pytest
-          # Simulating a heavy install time
-          sleep 15
           
       - name: Run Linter
-        run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics || true
+        run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
 
   test:
-    needs: lint # Anti-pattern: Unnecessary sequential dependency!
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -39,20 +36,18 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
           
-      - name: Re-Install Dependencies (Wasteful)
+      - name: Install Dependencies
         run: |
           pip install flake8 pytest
-          sleep 15
           
       - name: Run Tests
         run: |
-          # A simple test command that will pass
           echo "Running tests..."
-          pytest --version
+          pytest test_app.py
 
   build:
-    needs: test # Anti-pattern: Unnecessary sequential dependency!
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -62,11 +57,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
           
-      - name: Re-Install Dependencies Again (Wasteful)
+      - name: Install Dependencies
         run: |
           pip install flake8 pytest
-          sleep 15
           
       - name: Build Artifacts
         run: |
@@ -75,7 +70,7 @@ jobs:
           echo "build success" > dist/build.txt
 
   deploy:
-    needs: build
+    needs: [lint, test, build]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -85,11 +80,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
           
-      - name: Useless Install
+      - name: Install Dependencies
         run: |
           pip install flake8 pytest
-          sleep 15
           
       - name: Deploy
         run: |
