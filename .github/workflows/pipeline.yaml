@@ -45,31 +45,34 @@ jobs:
           source ${{ env.VENV_DIR }}/bin/activate
           pip install -r requirements.txt
 
-      - name: Archive project environment
+      - name: Archive Python virtual environment
         run: |
-          # Tar the entire project directory including the .venv
-          tar -czf project-env.tar.gz --exclude=project-env.tar.gz .
+          # Tar only the virtual environment directory to avoid 'file changed' error
+          tar -czf venv.tar.gz ./.venv
 
-      - name: Upload project environment artifact
+      - name: Upload Python virtual environment artifact
         uses: actions/upload-artifact@v4
         with:
-          name: project-environment
-          path: project-env.tar.gz
-          retention-days: 1 # Keep for a short duration as it's an intermediate artifact
+          name: python-venv # Changed artifact name to reflect content
+          path: venv.tar.gz # Changed path to the venv archive
+          retention-days: 1
 
   quality-gate:
     runs-on: ubuntu-latest
     needs: setup-environment
     steps:
-      - name: Download project environment
+      - name: Checkout source
+        uses: actions/checkout@v4 # Added checkout to get source code
+
+      - name: Download Python virtual environment
         uses: actions/download-artifact@v4
         with:
-          name: project-environment
-          path: .
+          name: python-venv # Changed artifact name
+          path: . # Download to current directory
 
-      - name: Extract project environment
+      - name: Extract Python virtual environment
         run: |
-          tar -xzf project-env.tar.gz -C .
+          tar -xzf venv.tar.gz -C . # Extract venv.tar.gz which contains ./.venv
           source ${{ env.VENV_DIR }}/bin/activate
 
       - name: Validate Python sources
@@ -79,15 +82,18 @@ jobs:
     runs-on: ubuntu-latest
     needs: setup-environment # Runs in parallel with quality-gate and regression-baseline
     steps:
-      - name: Download project environment
+      - name: Checkout source
+        uses: actions/checkout@v4 # Added checkout to get source code
+
+      - name: Download Python virtual environment
         uses: actions/download-artifact@v4
         with:
-          name: project-environment
-          path: .
+          name: python-venv # Changed artifact name
+          path: . # Download to current directory
 
-      - name: Extract project environment
+      - name: Extract Python virtual environment
         run: |
-          tar -xzf project-env.tar.gz -C .
+          tar -xzf venv.tar.gz -C . # Extract venv.tar.gz which contains ./.venv
           source ${{ env.VENV_DIR }}/bin/activate
 
       - name: Run unit tests
@@ -104,15 +110,18 @@ jobs:
     runs-on: ubuntu-latest
     needs: setup-environment # Runs in parallel with quality-gate and unit-tests
     steps:
-      - name: Download project environment
+      - name: Checkout source
+        uses: actions/checkout@v4 # Added checkout to get source code
+
+      - name: Download Python virtual environment
         uses: actions/download-artifact@v4
         with:
-          name: project-environment
-          path: .
+          name: python-venv # Changed artifact name
+          path: . # Download to current directory
 
-      - name: Extract project environment
+      - name: Extract Python virtual environment
         run: |
-          tar -xzf project-env.tar.gz -C .
+          tar -xzf venv.tar.gz -C . # Extract venv.tar.gz which contains ./.venv
           source ${{ env.VENV_DIR }}/bin/activate
 
       - name: Run regression snapshot check
